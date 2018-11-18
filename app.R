@@ -1,3 +1,5 @@
+#### Libraries ####
+
 library(shiny)
 library(shinydashboard)
 library(httr)
@@ -33,11 +35,13 @@ filterLocations <- function(aed_locations, current_lat, current_long, search_rad
 ui <- dashboardPage(
   dashboardHeader(title = "helpR"), ### Display projects name
   dashboardSidebar(
-    radioButtons(inputId = "type_of_transport", label = "Chose mode of transportation", choices = c("Foot", "Bike", "Public Transport", "Car")) ### Users input communication type
+    radioButtons(inputId = "type_of_transport", label = "Chose mode of transportation", choices = c("Foot", "Bike", "Public Transport", "Car")), ### Users input communication type
+    actionButton(inputId = "plot_route", label = "HELP!")
   ),
   dashboardBody(
     fluidPage(
-      leafletOutput("basic_map", width = 1500, height = 1000) ### Displays leaflet map
+      leafletOutput("basic_map"),
+      textOutput("fastest_way")### Displays leaflet map
     )
   ),
   
@@ -120,7 +124,7 @@ server <- function(input, output) {
     data_tmp <- httr::GET("https://route.api.here.com/routing/7.2/calculateroute.json",
                           query = list(app_id = app_id,
                                        app_code = app_code,
-                                       waypoint0 = paste0("geo!", 50.02583, ",", 19.90379),
+                                       waypoint0 = paste0("geo!", my_location()$lat[1], ",", my_location()$long[1]),
                                        waypoint1 = paste0("geo!", cut_locations()$lat[1], ",", cut_locations()$long[1]),
                                        mode = "fastest;car",
                                        routeattributes = "sh"))
@@ -134,14 +138,37 @@ server <- function(input, output) {
       dplyr::mutate_all(.funs = function(x) { as.numeric(as.character(x)) })
     
     start_point <- data.frame(lat = data_parsed$response$route[[1]]$waypoint[[1]]$originalPosition$latitude,
-                              long = data_parsed$response$route[[1]]$waypoint[[1]]$originalPosition$longitude)
+                              long = data_parsed$response$route[[1]]$waypoint[[1]]$originalPosition$longitude) %>%
+      dplyr::mutate_all(.funs = function(x) { as.numeric(as.character(x)) })
     
     end_point <- data.frame(lat = data_parsed$response$route[[1]]$leg[[1]]$end$originalPosition$latitude,
-                            long = data_parsed$response$route[[1]]$leg[[1]]$end$originalPosition$longitude)
+                            long = data_parsed$response$route[[1]]$leg[[1]]$end$originalPosition$longitude) %>%
+      dplyr::mutate_all(.funs = function(x) { as.numeric(as.character(x)) })
     
     all_points <- rbind(start_point, shape, end_point)
     
-    return(all_points)  
+    mapIcons <- iconList(
+      green_icon <- leaflet::makeIcon("Green.png",iconWidth = 32, iconHeight = 32),
+      red_icon <- leaflet::makeIcon("Red.png",iconWidth = 32, iconHeight = 32)
+    )
+    
+    navigation <- list(start_point = start_point,
+                       end_point = end_point,
+                       all_points = all_points,
+                       mapIcons = mapIcons)
+    
+    return(navigation)  
+  })
+  
+  observeEvent(input$plot_route, {
+    
+    leafletProxy("basic_map", data = fastest_way()) %>%
+      clearShapes() %>%
+      clearMarkers() %>%
+      addTiles() %>%
+      addPolylines(lat = fastest_way()$all_points$lat, lng = fastest_way()$all_points$long) %>%
+      addMarkers(lat = fastest_way()$start_point$lat, lng = fastest_way()$start_point$long, icon = fastest_way()$mapIcons[[2]]) %>%
+      addMarkers(lat = fastest_way()$end_point$lat, lng = fastest_way()$end_point$long, icon = fastest_way()$mapIcons[[1]])
   })
 }
 
