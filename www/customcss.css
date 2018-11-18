@@ -1,0 +1,85 @@
+@import url("https://fonts.googleapis.com/css?family=Glegoo");
+@import url("https://fonts.googleapis.com/css?family=Ubuntu");
+
+h1{
+  background-color: crimson;
+  font-family: "Glegoo", serif;
+  font-weight: bold;
+  font-size: 28px;
+  padding-top:15px;
+  padding-left:15px;
+  padding-bottom:15px;
+  margin-top:0px;
+}
+  
+p{
+  font-family: "Ubuntu", sans-serif;
+}
+
+body{
+  background-color: white;
+}
+
+
+.well{
+  background-color: gainsboro;
+  font-family: "Ubuntu", sans-serif;
+}
+
+.btn{
+  font-family: "Glegoo";
+  background-color: crimson; 
+  border-color: crimson;
+  width: 100%;
+}
+
+#plot_route:hover{
+    background-color: darkred;
+}
+
+.shiny-text-output{
+  padding-top: 15px;
+  background-color: white;
+  font-family: "Ubuntu";
+}
+
+#desc_tit{
+  font-family:"Glegoo";
+  color:crimson;
+  font-weight: bold;
+  font-size:18px;
+}
+
+#description{
+  background-color: lightpink;
+}
+
+#description .length{
+  font-weight: bold;
+}
+
+#description .street{
+  font-style: italic;
+}
+
+#description .next-street{
+  font-style: italic;
+}
+
+#type_of_transport .control-label{
+  font-weight: bold;
+  font-size:15px;
+}
+
+.well .info-box-number{
+  font-weight:bold;
+}
+
+#distBox{
+  font-family:"Glegoo";
+  padding-top:15px;
+}
+#timeBox{
+  padding-top:15px;
+  font-family:"Glegoo";
+}
