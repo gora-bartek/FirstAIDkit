@@ -32,26 +32,25 @@ filterLocations <- function(aed_locations, current_lat, current_long, search_rad
 }
 
 ###### User Interface #######
-ui <- dashboardPage(
-  dashboardHeader(title = "helpR"), ### Display projects name
-  dashboardSidebar(
-    radioButtons(inputId = "type_of_transport", label = "Chose mode of transportation", choices = c("Foot", "Bike", "Public Transport", "Car")), ### Users input communication type
-    actionButton(inputId = "plot_route", label = "HELP!")
-  ),
-  dashboardBody(
-    fluidPage(
-      leafletOutput("basic_map"),
-      textOutput("fastest_way")### Displays leaflet map
-    )
-  ),
-  
+ui <- fluidPage(
   tags$script(' $(document).ready(function () { navigator.geolocation.getCurrentPosition(onSuccess, onError);
                 function onError (err) { Shiny.onInputChange("geolocation", false); }
                 function onSuccess (position) { 
               setTimeout(function () { var coords = position.coords; console.log(coords.latitude + ",
               " + coords.longitude); Shiny.onInputChange("geolocation", true); Shiny.onInputChange("lat", coords.latitude);
-              Shiny.onInputChange("long", coords.longitude); }, 1100) } }); ') ### Get users location
+              Shiny.onInputChange("long", coords.longitude); }, 1100) } }); '), ### Get users location
   
+  sidebarPanel(
+    
+    radioButtons(inputId = "type_of_transport", label = "Chose mode of transportation", choices = c("Foot", "Bike", "Public Transport", "Car")), ### Users input communication type
+    actionButton(inputId = "plot_route", label = "HELP!"),
+    uiOutput("time_dist")
+  ),
+  
+  mainPanel(
+    leafletOutput("basic_map"),
+    textOutput("description")
+  )
 )
 ##### Server Side ##########
 server <- function(input, output) {
@@ -64,8 +63,15 @@ server <- function(input, output) {
 
   my_location <- reactive({ ### Get users locations
     
-    my_loc <- data.frame(lat = 50.0892785, long = 19.9795336)
-    return(my_loc)
+    if (is.null(input$lat) & is.null(input$long)){
+      
+      my_loc <- data.frame(lat = 50.02583, long = 19.90379)
+      return(my_loc)
+    } else {
+      
+      my_loc <- data.frame(lat = input$lat, long = input$long) 
+      return(my_loc)
+    }
   })
   
   cut_locations <- reactive({
@@ -152,10 +158,19 @@ server <- function(input, output) {
       red_icon <- leaflet::makeIcon("Red.png",iconWidth = 32, iconHeight = 32)
     )
     
+    distance <- as.numeric(data_parsed$response$route[[1]]$summary$distance) / 1000
+    exp_time <- ceiling(x = as.numeric(data_parsed$response$route[[1]]$summary$trafficTime) / 60)
+    description <- sapply(1:length(data_parsed$response$route[[1]]$leg[[1]]$maneuver), function(x) { data_parsed$response$route[[1]]$leg[[1]]$maneuver[[x]]$instruction }) %>%
+      paste0(collapse = " ") %>%
+      gsub()
+    
     navigation <- list(start_point = start_point,
                        end_point = end_point,
                        all_points = all_points,
-                       mapIcons = mapIcons)
+                       mapIcons = mapIcons,
+                       distance = distance,
+                       exp_time = exp_time,
+                       description = description)
     
     return(navigation)  
   })
@@ -169,7 +184,34 @@ server <- function(input, output) {
       addPolylines(lat = fastest_way()$all_points$lat, lng = fastest_way()$all_points$long) %>%
       addMarkers(lat = fastest_way()$start_point$lat, lng = fastest_way()$start_point$long, icon = fastest_way()$mapIcons[[2]]) %>%
       addMarkers(lat = fastest_way()$end_point$lat, lng = fastest_way()$end_point$long, icon = fastest_way()$mapIcons[[1]])
+    
+    output$time_dist <- renderText({
+      
+      distance <- fastest_way()$distance
+      expected_time <- fastest_way()$exp_time
+      
+      if (!is.null(distance) & !is.null(expected_time)) {
+        
+        txt_tb_displayed <- paste0("You will be there in ", expected_time, " minutes. Distance to go through equals ", distance, "km.")
+        return(txt_tb_displayed)
+      } else {
+        return(NULL)
+      }
+    })
+    
+    output$description <- renderText({
+      
+      description_tmp <- fastest_way()$description
+      
+      if (!is.null(description_tmp)) {
+        
+        des_tb_displayed <- description_tmp
+        return(des_tb_displayed)
+      } else {
+        return(NULL)
+      }
+    })
   })
-}
+} 
 
 shinyApp(ui = ui, server = server)
