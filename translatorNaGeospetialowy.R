@@ -13,7 +13,7 @@ for(i in 1:nrow(x)) {
                                      searchtext = adres_tmp[i]))
 
   data_parsed <- httr::content(data_tmp, as = "parsed")
-  unlisted_file <- lapply(test, function(x) {
+  unlisted_file <- lapply(data_parsed, function(x) {
     x[sapply(x, is.null)] <- NA
     unlist(x)
   })
@@ -21,3 +21,5 @@ for(i in 1:nrow(x)) {
   x$lat[i] <- unlisted_file$Response["View.Result.Location.DisplayPosition.Latitude"]
   x$long[i] <- unlisted_file$Response["View.Result.Location.DisplayPosition.Longitude"]
 }
+
+write.csv(x, "data_updated.csv", row.names = F)
