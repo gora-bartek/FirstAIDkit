@@ -60,15 +60,15 @@ ui <- fluidPage(
     uiOutput("time"),
     fluidRow(
       valueBoxOutput("distBox"),
-      valueBoxOutput("timeBox")
+      valueBoxOutput("timeBox"),
+      valueBoxOutput("typeBox")
     )
   ),
   
   mainPanel(
     leafletOutput("basic_map"),
     h2(textOutput(("desc_tit"))),
-    uiOutput("description"),
-    textOutput("test")
+    uiOutput("description")
   )
   )
 ##### Server Side ##########
@@ -84,7 +84,7 @@ server <- function(input, output) {
     
     if (is.null(input$lat) & is.null(input$long)){
       
-      my_loc <- data.frame(lat = 50.02583, long = 19.90379)
+      my_loc <- data.frame(lat = 50.04583, long = 19.92379)
       return(my_loc)
     } else {
       
@@ -145,7 +145,7 @@ server <- function(input, output) {
     return(basic_map_tmp)
   })
   
-  fastest_way <- reactive({
+  fastest_way <- eventReactive(input$plot_route, {
     
     app_id <- "va6Psz5oPSUztoDEu1NV"
     app_code <- "xeULHwPc_ab9QHZ2PMZmBA"
@@ -159,7 +159,7 @@ server <- function(input, output) {
       } 
       
       poss_ways <- data.frame(AED = rep(1:leng, each = 2),
-                              Type = rep(c("car", "pederastian"), times = leng))
+                              Type = rep(c("car", "pedestrian"), times = leng))
     } else {
       
       leng <- nrow(cut_locations())
@@ -182,20 +182,14 @@ server <- function(input, output) {
                                          app_code = app_code,
                                          waypoint0 = paste0("geo!", my_location()$lat, ",", my_location()$long),
                                          waypoint1 = paste0("geo!", cut_locations()$lat[poss_ways$AED[i]], ",", cut_locations()$long[poss_ways$AED[i]]),
-                                         mode = paste0("fastest;", possible_ways$Type[i]),
+                                         mode = paste0("fastest;", poss_ways$Type[i]),
                                          routeattributes = "sh"))
       
       data_parsed_tmp[[i]] <- httr::content(data_tmp, as = "parsed")
       
-      if(possible_ways$Type[i] == "car") {
-        time_tmp$time[i] <- as.numeric(data_parsed_tmp[[i]]$response$route[[1]]$summary$trafficTime)
-        time_tmp$id[i] <- i
-        time_tmp$type[i] <- possible_ways$Type[i]
-      } else { 
-        time_tmp$time[i] <- as.numeric(data_parsed_tmp[[i]]$response$route[[1]]$summary$travelTime)
-        time_tmp$id[i] <- i
-        time_tmp$type[i] <- possible_ways$Type[i]
-      }
+      time_tmp$time[i] <- as.numeric(data_parsed_tmp[[i]]$response$route[[1]]$summary$travelTime)
+      time_tmp$id[i] <- i
+      time_tmp$type[i] <- possible_ways$Type[i]
     }
     
     time_tmp %<>% tidyr::drop_na()
@@ -224,9 +218,11 @@ server <- function(input, output) {
     )
     
     distance <- as.numeric(data_parsed$response$route[[1]]$summary$distance) / 1000
-    exp_time <- ceiling(x = as.numeric(data_parsed$response$route[[1]]$summary$trafficTime) / 60)
+    exp_time <- ceiling(x = as.numeric(data_parsed$response$route[[1]]$summary$travelTime) / 60)
     description <- sapply(1:length(data_parsed$response$route[[1]]$leg[[1]]$maneuver), function(x) { data_parsed$response$route[[1]]$leg[[1]]$maneuver[[x]]$instruction }) %>%
       paste0(collapse = " ")
+    
+    trans_type <- data_parsed$response$route[[1]]$mode$transportModes[[1]]
     
     navigation <- list(start_point = start_point,
                        end_point = end_point,
@@ -234,6 +230,7 @@ server <- function(input, output) {
                        mapIcons = mapIcons,
                        distance = distance,
                        exp_time = exp_time,
+                       trans_type = trans_type,
                        description = description)
     
     return(navigation)  
@@ -302,6 +299,19 @@ server <- function(input, output) {
         return(NULL)
       }
     })
+    
+    output$typeBox <- renderInfoBox({
+      trans_type <- fastest_way()$trans_type
+      if (!is.null(trans_type)) {
+        infoBox(
+          "Distance:", trans_type, icon = icon("road"),
+          color = "yellow"
+        )
+      } else {
+        return(NULL)
+      }
+    })
+    
     
     output$description <- renderUI({
       
